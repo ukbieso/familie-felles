@@ -1,12 +1,21 @@
 package no.nav.familie.http.azure;
 
-public class AzureAccessTokenException extends RuntimeException {
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-    public AzureAccessTokenException(String message, Throwable cause) {
+class AzureAccessTokenException extends RuntimeException {
+
+    private static final Logger logger = LoggerFactory.getLogger(AzureAccessTokenException.class);
+
+    AzureAccessTokenException(String message, Throwable cause) {
         super(message, cause);
+
+        logger.error(message, cause);
     }
 
-    public AzureAccessTokenException(String message) {
+    AzureAccessTokenException(String message) {
         super(message);
+
+        logger.error(message);
     }
 }

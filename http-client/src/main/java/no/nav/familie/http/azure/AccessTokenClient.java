@@ -74,15 +74,12 @@ public class AccessTokenClient {
                     this.cachedTokenExpiresOn = LocalDateTime.now(ZoneId.systemDefault()).plusSeconds(accessToken.getExpires_in());
                     return accessToken;
                 } else {
-                    logger.warn("Manglende token fra azure ad");
                     throw new AzureAccessTokenException("Manglende token fra azure ad");
                 }
             } else {
-                logger.warn("Kall mot azure ad for å hente token feilet");
-                throw new AzureAccessTokenException("Kall mot azure ad for å hente token feilet" );
+                throw new AzureAccessTokenException("Kall mot azure ad for å hente token feilet, status " + accessTokenResponse.getStatusCode() + ", body: " + accessTokenResponse.getBody() );
             }
         } catch (RestClientException e) {
-            logger.warn("Kall mot azure ad for å hente token feilet");
             throw new AzureAccessTokenException("Kall mot azure ad for å hente token feilet", e);
         }
     }
