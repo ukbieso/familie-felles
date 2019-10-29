@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -79,6 +80,8 @@ public class AccessTokenClient {
             } else {
                 throw new AzureAccessTokenException("Kall mot azure ad for å hente token feilet, status " + accessTokenResponse.getStatusCode() + ", body: " + accessTokenResponse.getBody() );
             }
+        } catch (HttpClientErrorException.NotFound e) {
+            return new AccessTokenDto();
         } catch (RestClientException e) {
             throw new AzureAccessTokenException("Kall mot azure ad for å hente token feilet", e);
         }
