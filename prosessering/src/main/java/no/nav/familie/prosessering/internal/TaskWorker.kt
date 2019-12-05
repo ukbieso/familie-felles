@@ -4,8 +4,8 @@ import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Metrics
 import no.nav.familie.log.mdc.MDCConstants.MDC_CALL_ID
 import no.nav.familie.prosessering.AsyncTaskStep
-import no.nav.familie.prosessering.TaskStepBeskrivelse
 import no.nav.familie.prosessering.TaskFeil
+import no.nav.familie.prosessering.TaskStepBeskrivelse
 import no.nav.familie.prosessering.domene.Status
 import no.nav.familie.prosessering.domene.Task
 import no.nav.familie.prosessering.domene.TaskRepository
@@ -13,9 +13,10 @@ import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.aop.framework.AopProxyUtils
 import org.springframework.core.annotation.AnnotationUtils
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -43,19 +44,30 @@ class TaskWorker(private val taskRepository: TaskRepository, taskStepTyper: List
         }
     }
 
+    @Transactional
+    fun executePlukk(task: Task) {
+        task.plukker()
+        taskRepository.saveAndFlush(task)
+    }
+
+    @Transactional
+    fun finnAlleTasksKlareForProsessering(pollingSize: Int): List<Task> {
+        return taskRepository.finnAlleTasksKlareForProsessering(PageRequest.of(0, pollingSize))
+    }
 
     @Async("taskExecutor")
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     fun doTaskStep(taskId: Long?) {
         requireNotNull(taskId, { "taskId kan ikke være null" })
         doActualWork(taskId)
     }
 
     // For Unit testing
-    fun doActualWork(TaskId: Long) {
+    fun doActualWork(taskId: Long) {
         val startTidspunkt = System.currentTimeMillis()
         var maxAntallFeil = 0
-        var task = taskRepository.findById(TaskId).orElseThrow()
+        var task = taskRepository.findByIdOrNull(taskId) ?: error("Task med id: ${taskId} ikke funnet")
 
         initLogContext(task)
         try {

@@ -6,11 +6,9 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.core.task.TaskExecutor
-import org.springframework.data.domain.PageRequest
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.util.function.Consumer
 import kotlin.math.min
 
@@ -19,24 +17,27 @@ class TaskStepExecutorService(@Value("\${prosessering.maxAntall:10}") private va
                               @Value("\${prosessering.minCapacity:2}") private val minCapacity: Int,
                               private val worker: TaskWorker,
                               @Qualifier("taskExecutor") private val taskExecutor: TaskExecutor,
-                              private val taskRepository: TaskRepository) {
+                              private val taskRepository: TaskRepository,
+                              private val scheduledTaskService: ScheduledTaskService) {
 
     @Scheduled(fixedDelay = POLLING_DELAY)
-    @Transactional
     fun pollAndExecute() {
         log.debug("Poller etter nye tasks")
         val pollingSize = calculatePollingSize(maxAntall)
 
         if (pollingSize > minCapacity) {
-            val tasks = taskRepository.finnAlleTasksKlareForProsessering(PageRequest.of(0, pollingSize))
+            val tasks = worker.finnAlleTasksKlareForProsessering(pollingSize)
+
             log.trace("Pollet {} tasks med max {}", tasks.size, maxAntall)
 
-            tasks.forEach(Consumer<Task> { this.executeWork(it) })
+            tasks.forEach(Consumer<Task> { worker.executePlukk(it) })
+            tasks.forEach(Consumer<Task> { worker.doActualWork(it.id!!) })
         } else {
             log.trace("Pollet ingen tasks siden kapasiteten var {} < {}", pollingSize, minCapacity)
         }
         log.trace("Ferdig med polling, venter {} ms til neste kjøring.", POLLING_DELAY)
     }
+
 
     private fun calculatePollingSize(maxAntall: Int): Int {
         val remainingCapacity = (taskExecutor as ThreadPoolTaskExecutor).threadPoolExecutor.queue.remainingCapacity()
@@ -45,11 +46,6 @@ class TaskStepExecutorService(@Value("\${prosessering.maxAntall:10}") private va
         return pollingSize
     }
 
-    private fun executeWork(task: Task) {
-        task.plukker()
-        taskRepository.saveAndFlush(task)
-        worker.doTaskStep(task.id!!)
-    }
 
     companion object {
         const val POLLING_DELAY = 30000L

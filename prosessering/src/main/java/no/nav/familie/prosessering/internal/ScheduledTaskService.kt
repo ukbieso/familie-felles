@@ -33,6 +33,7 @@ class ScheduledTaskService(private val taskRepository: TaskRepository) {
         }
     }
 
+
     companion object {
         val logger: Logger = LoggerFactory.getLogger(ScheduledTaskService::class.java)
     }
